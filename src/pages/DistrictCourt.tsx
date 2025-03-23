@@ -7,7 +7,7 @@ import { NeonButton } from "@/components/NeonButton";
 import { NeonInput } from "@/components/NeonInput";
 import { PageTransition } from "@/components/PageTransition";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { eCourtService, CaseDetails } from "@/services/eCourtService";
+import { eCourtService, CaseDetails, isValidCNR } from "@/services/eCourtService";
 import { caseStorageService } from "@/services/caseStorageService";
 import { notificationService } from "@/services/notificationService";
 import { slideUpVariants, fadeInVariants } from "@/utils/animations";
@@ -49,11 +49,17 @@ const DistrictCourt = () => {
       return;
     }
     
-    // CNR number validation (typically 16 digits)
-    const cnrRegex = /^\d{16}$/;
-    if (!cnrRegex.test(cnrNumber) && searchType === 'cnr') {
-      setError("Please enter a valid 16-digit CNR number");
-      return;
+    // CNR number validation with improved pattern
+    if (searchType === 'cnr') {
+      if (!isValidCNR(cnrNumber)) {
+        setError("Please enter a valid CNR number in the format XXCGDDYYYYNNNNNNN");
+        toast({
+          title: "Invalid CNR",
+          description: "CNR format should be XXCGDDYYYYNNNNNNN (e.g., TNCG02000809YYYY)",
+          variant: "destructive",
+        });
+        return;
+      }
     }
     
     setError("");
@@ -79,7 +85,7 @@ const DistrictCourt = () => {
         if (result.status === 'Error' || result.status === 'Not Found') {
           setError(result.purpose || 'Failed to retrieve case details');
           toast({
-            title: "Search Error",
+            title: result.status,
             description: result.purpose || "Failed to retrieve case details",
             variant: "destructive",
           });
@@ -90,6 +96,11 @@ const DistrictCourt = () => {
             toast({
               title: "Case Found",
               description: `Next hearing date: ${result.nextHearingDate}`,
+            });
+          } else {
+            toast({
+              title: "Case Found",
+              description: "Case details retrieved successfully",
             });
           }
         }
@@ -213,8 +224,8 @@ const DistrictCourt = () => {
                   type="text"
                   label="CNR Number"
                   value={cnrNumber}
-                  onChange={(e) => setCnrNumber(e.target.value)}
-                  placeholder="Enter CNR Number"
+                  onChange={(e) => setCnrNumber(e.target.value.toUpperCase())}
+                  placeholder="Enter CNR Number (e.g. TNCG02000809YYYY)"
                   className="flex-1"
                   disabled={loading}
                 />
@@ -232,6 +243,12 @@ const DistrictCourt = () => {
               
               {error && (
                 <p className="text-red-500 text-sm mt-2">{error}</p>
+              )}
+              
+              {!error && searchType === 'cnr' && cnrNumber && !loading && (
+                <p className="text-gray-400 text-xs mt-1">
+                  CNR format: XXCGDDYYYYNNNNNNN (State Code, Court, District, Year, Case Number)
+                </p>
               )}
               
               {showCaptcha && (

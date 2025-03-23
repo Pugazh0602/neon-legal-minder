@@ -48,10 +48,34 @@ export interface SavedCase extends CaseDetails {
   reminderDate?: string;
 }
 
+// Helper function to validate CNR number format (XXCGDDYYYYNNNNNNN)
+// where XX is state code, CG is court complex, DD is district code, 
+// YYYY is case filing year, and NNNNNNN is the unique registration number
+export const isValidCNR = (cnr: string): boolean => {
+  // CNR format: Typically 16 digits, but can have alphabets in specific positions
+  // More strict regex pattern for CNR number
+  const cnrRegex = /^[A-Z0-9]{2}CG[0-9]{2}[0-9]{4}[0-9]{7}$/;
+  return cnrRegex.test(cnr);
+};
+
 class ECourtService {
   async getDistrictCourtCaseStatus(cnrNumber: string): Promise<CaseDetails> {
     try {
       console.log(`Fetching case status for CNR: ${cnrNumber}`);
+      
+      // Validate CNR number format first
+      if (!isValidCNR(cnrNumber)) {
+        return {
+          caseNumber: cnrNumber,
+          courtName: 'Invalid CNR',
+          status: 'Error',
+          filingDate: 'N/A',
+          petitioner: 'N/A',
+          respondent: 'N/A',
+          purpose: 'Please enter a valid CNR number in the format XXCGDDYYYYNNNNNNN',
+          judgeName: 'N/A'
+        };
+      }
       
       // Make actual API request to get case status by CNR
       const response = await axios.post(`${BASE_DISTRICT_URL}?p=casestatus/getCaseStatusByCNR`, 
