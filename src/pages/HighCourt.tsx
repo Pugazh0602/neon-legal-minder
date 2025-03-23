@@ -11,11 +11,13 @@ import { eCourtService, CaseDetails } from "@/services/eCourtService";
 import { caseStorageService } from "@/services/caseStorageService";
 import { notificationService } from "@/services/notificationService";
 import { slideUpVariants, fadeInVariants } from "@/utils/animations";
+import { useToast } from "@/hooks/use-toast";
 
 type SearchType = 'cnr' | 'status' | 'orders' | 'cause' | 'caveat';
 
 const HighCourt = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [searchType, setSearchType] = useState<SearchType>('cnr');
   const [cnrNumber, setCnrNumber] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,6 +41,13 @@ const HighCourt = () => {
       return;
     }
     
+    // CNR number validation (typically 16 digits)
+    const cnrRegex = /^\d{16}$/;
+    if (!cnrRegex.test(cnrNumber) && searchType === 'cnr') {
+      setError("Please enter a valid 16-digit CNR number");
+      return;
+    }
+    
     setError("");
     setLoading(true);
     setCaseDetails(null);
@@ -56,14 +65,42 @@ const HighCourt = () => {
         // Now proceed with case lookup
         setShowCaptcha(false);
         const result = await eCourtService.getHighCourtCaseStatus(cnrNumber);
-        setCaseDetails(result);
+        
+        // Check if result indicates an error or not found state
+        if (result.status === 'Error' || result.status === 'Not Found') {
+          setError(result.purpose || 'Failed to retrieve case details');
+          toast({
+            title: "Search Error",
+            description: result.purpose || "Failed to retrieve case details",
+            variant: "destructive",
+          });
+          setCaseDetails(null);
+        } else {
+          setCaseDetails(result);
+          if (result.status === 'Pending' && result.nextHearingDate) {
+            toast({
+              title: "Case Found",
+              description: `Next hearing date: ${result.nextHearingDate}`,
+            });
+          }
+        }
       } else {
         // Handle other search types
+        toast({
+          title: "Feature Not Available",
+          description: "This search type is not implemented in the demo",
+          variant: "destructive",
+        });
         setError("This search type is not implemented in the demo");
       }
     } catch (error) {
       console.error("Search error:", error);
       setError("Failed to fetch case details. Please try again.");
+      toast({
+        title: "Error",
+        description: "Failed to fetch case details. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -93,11 +130,21 @@ const HighCourt = () => {
         `Case ${savedCase.caseNumber} has been saved to your cases`
       );
       
+      toast({
+        title: "Success",
+        description: `Case ${savedCase.caseNumber} has been saved`,
+      });
+      
       // Navigate to My Cases screen
       navigate("/my-cases");
     } catch (error) {
       console.error("Error saving case:", error);
       setError("Failed to save case. Please try again.");
+      toast({
+        title: "Error",
+        description: "Failed to save case. Please try again.",
+        variant: "destructive",
+      });
     }
   };
   

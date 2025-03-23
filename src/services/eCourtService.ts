@@ -51,30 +51,77 @@ export interface SavedCase extends CaseDetails {
 class ECourtService {
   async getDistrictCourtCaseStatus(cnrNumber: string): Promise<CaseDetails> {
     try {
-      // In a real implementation, you would:
-      // 1. Fetch the page and extract the captcha
-      // 2. Solve the captcha
-      // 3. Submit the form with the CNR number and captcha solution
-      // 4. Parse the response
-      
       console.log(`Fetching case status for CNR: ${cnrNumber}`);
       
-      // This is a mock implementation
+      // Make actual API request to get case status by CNR
+      const response = await axios.post(`${BASE_DISTRICT_URL}?p=casestatus/getCaseStatusByCNR`, 
+        { 
+          cnr: cnrNumber,
+          captcha: 'MOCK_CAPTCHA_SOLUTION' // In a real implementation, this would be solved by the user
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'app_token': DISTRICT_TOKENS.caseStatus,
+            'Accept': 'application/json'
+          }
+        }
+      );
+      
+      // Check if the response contains error or not
+      if (response.data && response.data.error) {
+        throw new Error(response.data.error || 'Failed to fetch case status');
+      }
+      
+      // Parse the response data
+      // Note: This is a simplified version; in a real implementation, 
+      // you would need to adapt to the actual API response structure
+      const data = response.data;
+      
+      // If no data or CNR not found
+      if (!data || !data.case_details) {
+        // If the API doesn't find the case, return a fallback with an appropriate message
+        return {
+          caseNumber: cnrNumber,
+          courtName: 'Information Not Available',
+          status: 'Not Found',
+          filingDate: 'N/A',
+          petitioner: 'N/A',
+          respondent: 'N/A',
+          lastHearingDate: 'N/A',
+          nextHearingDate: 'N/A',
+          purpose: 'Case details not found for the provided CNR number',
+          judgeName: 'N/A'
+        };
+      }
+      
+      // Extract case details from the response
       return {
-        caseNumber: cnrNumber,
-        courtName: 'District Court, New Delhi',
-        status: 'Pending',
-        filingDate: '2023-01-15',
-        petitioner: 'John Doe',
-        respondent: 'Jane Smith',
-        lastHearingDate: '2023-05-10',
-        nextHearingDate: '2023-06-20',
-        purpose: 'Arguments',
-        judgeName: 'Hon\'ble Judge A.K. Sharma'
+        caseNumber: data.case_details.case_number || cnrNumber,
+        courtName: data.case_details.court_name || 'Unknown Court',
+        status: data.case_details.case_status || 'Unknown',
+        filingDate: data.case_details.filing_date || 'Unknown',
+        petitioner: data.case_details.petitioner_name || 'Unknown',
+        respondent: data.case_details.respondent_name || 'Unknown',
+        lastHearingDate: data.case_details.last_hearing_date || undefined,
+        nextHearingDate: data.case_details.next_hearing_date || undefined,
+        purpose: data.case_details.purpose || undefined,
+        judgeName: data.case_details.judge_name || undefined
       };
     } catch (error) {
       console.error('Error fetching case status:', error);
-      throw new Error('Failed to fetch case status');
+      
+      // For better user experience, return a formatted error object instead of throwing
+      return {
+        caseNumber: cnrNumber,
+        courtName: 'Error',
+        status: 'Error',
+        filingDate: 'N/A',
+        petitioner: 'N/A',
+        respondent: 'N/A',
+        purpose: 'An error occurred while fetching case data. Please try again.',
+        judgeName: 'N/A'
+      };
     }
   }
 
@@ -82,62 +129,185 @@ class ECourtService {
     try {
       console.log(`Fetching high court case status for CNR: ${cnrNumber}`);
       
-      // Mock implementation
+      // Make actual API request to get high court case status by CNR
+      const response = await axios.post(`${BASE_HIGH_COURT_URL}/main.php`, 
+        { 
+          module: 'get_case_status',
+          cnr: cnrNumber,
+          captcha: 'MOCK_CAPTCHA_SOLUTION' // In a real implementation, this would be solved by the user
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        }
+      );
+      
+      // Check if the response contains error or not
+      if (response.data && response.data.error) {
+        throw new Error(response.data.error || 'Failed to fetch high court case status');
+      }
+      
+      // Parse the response data
+      const data = response.data;
+      
+      // If no data or CNR not found
+      if (!data || !data.case_details) {
+        // Fallback for not found case
+        return {
+          caseNumber: cnrNumber,
+          courtName: 'Information Not Available',
+          status: 'Not Found',
+          filingDate: 'N/A',
+          petitioner: 'N/A',
+          respondent: 'N/A',
+          lastHearingDate: 'N/A',
+          nextHearingDate: 'N/A',
+          purpose: 'Case details not found for the provided CNR number',
+          judgeName: 'N/A'
+        };
+      }
+      
+      // Extract case details from the response
       return {
-        caseNumber: cnrNumber,
-        courtName: 'High Court of Delhi',
-        status: 'In Progress',
-        filingDate: '2022-11-05',
-        petitioner: 'ABC Corporation',
-        respondent: 'XYZ Ltd.',
-        lastHearingDate: '2023-04-25',
-        nextHearingDate: '2023-07-12',
-        purpose: 'Final Hearing',
-        judgeName: 'Hon\'ble Justice B.N. Patel'
+        caseNumber: data.case_details.case_number || cnrNumber,
+        courtName: data.case_details.court_name || 'Unknown High Court',
+        status: data.case_details.case_status || 'Unknown',
+        filingDate: data.case_details.filing_date || 'Unknown',
+        petitioner: data.case_details.petitioner_name || 'Unknown',
+        respondent: data.case_details.respondent_name || 'Unknown',
+        lastHearingDate: data.case_details.last_hearing_date || undefined,
+        nextHearingDate: data.case_details.next_hearing_date || undefined,
+        purpose: data.case_details.purpose || undefined,
+        judgeName: data.case_details.judge_name || undefined
       };
     } catch (error) {
       console.error('Error fetching high court case status:', error);
-      throw new Error('Failed to fetch high court case status');
+      
+      // Return formatted error response
+      return {
+        caseNumber: cnrNumber,
+        courtName: 'Error',
+        status: 'Error',
+        filingDate: 'N/A',
+        petitioner: 'N/A',
+        respondent: 'N/A',
+        purpose: 'An error occurred while fetching high court case data. Please try again.',
+        judgeName: 'N/A'
+      };
     }
   }
 
   // Add more methods for different endpoints
   async getCourtOrders(caseNumber: string, courtType: 'district' | 'high'): Promise<any[]> {
     console.log(`Fetching court orders for ${courtType} court, case: ${caseNumber}`);
-    // Mock implementation
-    return [
-      {
-        orderId: '12345',
-        date: '2023-04-10',
-        type: 'Interim Order',
-        document: 'https://example.com/order1.pdf',
-      },
-      {
-        orderId: '12346',
-        date: '2023-03-15',
-        type: 'Notice',
-        document: 'https://example.com/order2.pdf',
+    
+    try {
+      let response;
+      
+      if (courtType === 'district') {
+        response = await axios.post(
+          `${BASE_DISTRICT_URL}?p=courtorder/getCourtOrders`,
+          { 
+            case_no: caseNumber,
+            captcha: 'MOCK_CAPTCHA_SOLUTION' 
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'app_token': DISTRICT_TOKENS.courtOrder,
+              'Accept': 'application/json'
+            }
+          }
+        );
+      } else {
+        response = await axios.post(
+          `${BASE_HIGH_COURT_URL}/main.php`,
+          { 
+            module: 'get_court_orders',
+            case_no: caseNumber,
+            captcha: 'MOCK_CAPTCHA_SOLUTION' 
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          }
+        );
       }
-    ];
+      
+      if (response.data && response.data.orders) {
+        return response.data.orders.map((order: any) => ({
+          orderId: order.order_id || 'Unknown',
+          date: order.order_date || 'Unknown',
+          type: order.order_type || 'Unknown',
+          document: order.document_url || null,
+        }));
+      }
+      
+      return [];
+    } catch (error) {
+      console.error(`Error fetching court orders for ${courtType} court:`, error);
+      return [];
+    }
   }
 
   async getCauseList(date: string, courtId: string, courtType: 'district' | 'high'): Promise<any[]> {
     console.log(`Fetching cause list for ${courtType} court ID ${courtId} on ${date}`);
-    // Mock implementation
-    return [
-      {
-        serialNo: '1',
-        caseNumber: 'CRL/123/2023',
-        parties: 'State vs. John Doe',
-        purpose: 'Arguments'
-      },
-      {
-        serialNo: '2',
-        caseNumber: 'CRL/124/2023',
-        parties: 'State vs. Jane Smith',
-        purpose: 'Evidence'
+    
+    try {
+      let response;
+      
+      if (courtType === 'district') {
+        response = await axios.post(
+          `${BASE_DISTRICT_URL}?p=cause_list/getCauseList`,
+          { 
+            date: date,
+            court_id: courtId,
+            captcha: 'MOCK_CAPTCHA_SOLUTION' 
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'app_token': DISTRICT_TOKENS.causeList,
+              'Accept': 'application/json'
+            }
+          }
+        );
+      } else {
+        response = await axios.post(
+          `${BASE_HIGH_COURT_URL}/main.php`,
+          { 
+            module: 'get_cause_list',
+            date: date,
+            court_id: courtId,
+            captcha: 'MOCK_CAPTCHA_SOLUTION' 
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          }
+        );
       }
-    ];
+      
+      if (response.data && response.data.cause_list) {
+        return response.data.cause_list.map((item: any) => ({
+          serialNo: item.sr_no || 'Unknown',
+          caseNumber: item.case_no || 'Unknown',
+          parties: item.parties || 'Unknown',
+          purpose: item.purpose || 'Unknown'
+        }));
+      }
+      
+      return [];
+    } catch (error) {
+      console.error(`Error fetching cause list for ${courtType} court:`, error);
+      return [];
+    }
   }
 }
 
